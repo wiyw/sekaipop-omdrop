@@ -1,0 +1,65 @@
+{
+    "id": "omdrop",
+    "name": "Omdrop",
+    "version": "0.1.0",
+    "api": 1,
+    "description": "AirDrop for nearby Apple devices, over Owly's radio: turn receiving on, see who is around, and send files.",
+    "icon": "wifi_tethering",
+    "bar": { "label": "Omdrop", "icon": "wifi_tethering" },
+    "settings": {
+        "barLook": "status",
+        "hideWhenMissing": true,
+        "window": "10m",
+        "radarSound": true,
+        "look": "full",
+        "checkSeconds": 5
+    },
+    "settingsInfo": {
+        "barLook": {
+            "label": "Bar entry",
+            "description": "What the entry shows next to its icon.",
+            "group": "Bar",
+            "choices": [{ "value": "status", "label": "Icon and state" }, { "value": "icon", "label": "Icon only" }]
+        },
+        "hideWhenMissing": {
+            "label": "Hide without Omdrop",
+            "description": "Take the entry off the bar when the omdrop command isn't installed.",
+            "group": "Bar"
+        },
+        "window": {
+            "label": "Stay visible for",
+            "description": "The window used when receiving is turned on.",
+            "group": "Receiving",
+            "choices": [
+                { "value": "once", "label": "One file" },
+                { "value": "1m", "label": "1 minute" },
+                { "value": "5m", "label": "5 minutes" },
+                { "value": "10m", "label": "10 minutes" },
+                { "value": "15m", "label": "15 minutes" },
+                { "value": "30m", "label": "30 minutes" },
+                { "value": "60m", "label": "1 hour" },
+                { "value": "forever", "label": "Until turned off" }
+            ]
+        },
+        "radarSound": {
+            "label": "Radar sounds",
+            "description": "Blips as names arrive and pings as the sweep crosses a device.",
+            "group": "Receiving"
+        },
+        "look": {
+            "label": "Widget look",
+            "description": "Compact is the radar alone.",
+            "group": "Widget",
+            "choices": [{ "value": "full", "label": "Full" }, { "value": "compact", "label": "Compact" }]
+        },
+        "checkSeconds": {
+            "label": "Check every",
+            "description": "While the popup or the widget is showing. The bar alone checks every 15 seconds.",
+            "group": "Checking",
+            "min": 2,
+            "max": 60,
+            "unit": "seconds"
+        }
+    },
+    "groups": ["Bar", "Receiving", "Widget", "Checking"]
+}
