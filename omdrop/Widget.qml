@@ -5,9 +5,9 @@ import "lib/Omdrop.js" as O
 // The desktop widget, inside SekaiPop's card frame (so it uses the card family of colours,
 // pSurface / pInk, like the built-in cards).
 //
-//   full      the badge, "Omdrop", this computer and the state; the radar; then the nearby
-//             devices, a click sending files. 340 wide inside the frame.
-//   compact   a 148 square: the icon, how many are nearby, and the radar, no words.
+//   full      the badge, "Omdrop", this computer and the state; then the nearby devices,
+//             a click sending files. 340 wide inside the frame.
+//   compact   a 148 square: the icon and how many are nearby, no words.
 //
 // The header and margins are plain card, which SekaiPop keeps as the handle for dragging.
 Item {
@@ -143,17 +143,6 @@ Item {
             }
         }
 
-        Radar {
-            width: full.width
-            height: 178
-            theme: root.t
-            peers: root.svc ? root.svc.peers : []
-            scanning: root.svc ? root.svc.scanning : false
-            muted: !root.host.settings.radarSound
-            soundDir: String(Qt.resolvedUrl("sounds/")).replace("file://", "")
-            onSendRequested: function (mac) { root.svc.sendTo(mac) }
-        }
-
         Repeater {
             model: root.shown
 
@@ -251,17 +240,5 @@ Item {
             font.weight: Font.DemiBold
         }
 
-        Radar {
-            width: 72
-            height: 72
-            anchors.horizontalCenter: parent.horizontalCenter
-            theme: root.t
-            peers: root.svc ? root.svc.peers : []
-            scanning: root.svc ? root.svc.scanning : false
-            labels: false
-            showEmptyText: false
-            interactive: false
-            muted: true
-        }
     }
 }

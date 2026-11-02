@@ -1,4 +1,6 @@
 import QtQuick
+import Quickshell.Io
+import Qt.labs.folderlistmodel
 import "lib"
 import "lib/Omdrop.js" as O
 
@@ -10,10 +12,10 @@ import "lib/Omdrop.js" as O
 //   window    the eight stops, a live window showing what is left
 //   who       Everyone / Contacts Only, the computer's name, the folder
 //   senders   the Contacts Only allow-list, when that is the audience
-//   nearby    the radar and the nearby Apple devices; click one to send it files
+//   nearby    the nearby Apple devices; click one to send it files
 //   footer    when status was last checked
 //
-// Past the card's height it scrolls, so the radar and every setting stay reachable.
+// Past the card's height it scrolls, so every device and setting stays reachable.
 Item {
     id: root
 
@@ -66,6 +68,22 @@ Item {
         root.svc.addSender(root.senderDraft)
         root.senderDraft = ""
         senderField.text = ""
+    }
+
+    // The receiver writes each shared link into the download folder as an inert .url/.webloc.
+    // FolderListModel watches it, so a link that arrives while the popup is open appears here.
+    readonly property int linkLimit: 4
+
+    FolderListModel {
+        id: links
+        folder: O.fileUrl(root.m.dir)
+        nameFilters: ["*.url", "*.webloc"]
+        showDirs: false
+        showFiles: true
+        showHidden: false
+        sortCaseSensitive: false
+        sortField: FolderListModel.Time
+        sortReversed: false
     }
 
     Component.onCompleted: {
@@ -361,6 +379,7 @@ Item {
                         verticalAlignment: TextInput.AlignVCenter
                         clip: true
                         selectByMouse: true
+                        activeFocusOnPress: true
                         text: root.nameDraft
                         color: root.t.ink
                         font.family: root.t.fontFamily
@@ -456,32 +475,6 @@ Item {
                 }
             }
 
-            Item {
-                x: 12
-                width: parent.width - 24
-                height: 38
-
-                Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 4
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Blip when the radar finds a device"
-                    color: root.pal.ink
-                    font.family: root.t.fontFamily
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                }
-
-                Toggle {
-                    theme: root.t
-                    pal: root.pal
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    checked: root.host.settings.radarSound
-                    onToggled: root.host.setSetting("radarSound", !root.host.settings.radarSound)
-                }
-            }
-
             // ===== known senders =====
             Column {
                 width: parent.width
@@ -573,10 +566,12 @@ Item {
                             verticalAlignment: TextInput.AlignVCenter
                             clip: true
                             selectByMouse: true
+                            activeFocusOnPress: true
                             text: root.senderDraft
                             color: root.t.ink
                             font.family: root.t.fontFamily
                             font.pixelSize: 12
+                            Keys.onTabPressed: nameField.forceActiveFocus()
                             onTextEdited: root.senderDraft = text
                             onAccepted: root.addSenderNow()
                         }
@@ -616,36 +611,8 @@ Item {
                 value: !root.canReceive ? "off"
                     : !root.svc || !root.svc.scanning ? "waiting for the radio"
                     : root.peers.length === 0 ? "nothing yet"
+                    : root.svc && !root.svc.namesResolved ? "learning names…"
                     : root.peers.length + " seen"
-            }
-
-            Item {
-                x: 12
-                width: parent.width - 24
-                height: 176
-                visible: root.canReceive
-
-                Radar {
-                    anchors.fill: parent
-                    theme: root.t
-                    peers: root.svc ? root.svc.peers : []
-                    scanning: root.svc ? root.svc.scanning : false
-                    muted: !root.host.settings.radarSound
-                    soundDir: String(Qt.resolvedUrl("sounds/")).replace("file://", "")
-                    onSendRequested: function (mac) { root.svc.sendTo(mac) }
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    anchors.verticalCenterOffset: 58
-                    visible: root.svc && root.svc.scanning && root.peers.length > 0
-                        && !root.svc.namesResolved
-                    text: "Learning names…"
-                    color: root.pal.inkSub
-                    font.family: root.t.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                }
             }
 
             Text {
@@ -656,6 +623,21 @@ Item {
                 bottomPadding: 4
                 wrapMode: Text.WordWrap
                 text: "Turn Omdrop on to see nearby Apple devices. On an iPhone, the AirDrop sheet has to be open."
+                color: root.pal.inkSub
+                font.family: root.t.fontFamily
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+                lineHeight: 1.25
+            }
+
+            Text {
+                x: 16
+                width: parent.width - 32
+                visible: root.canReceive && root.svc && root.svc.scanning && root.peers.length === 0
+                topPadding: 2
+                bottomPadding: 4
+                wrapMode: Text.WordWrap
+                text: "Nothing nearby yet. On an iPhone, the AirDrop sheet has to be open."
                 color: root.pal.inkSub
                 font.family: root.t.fontFamily
                 font.pixelSize: 12
@@ -680,6 +662,91 @@ Item {
                     onCancelRequested: root.svc.cancelSend()
                     onDismissRequested: root.svc.dismissSend()
                 }
+            }
+
+            // ===== received links =====
+            SectionHead {
+                visible: links.count > 0
+                theme: root.t
+                pal: root.pal
+                label: "Links"
+                value: links.count === 1 ? "1 received" : links.count + " received"
+            }
+
+            Repeater {
+                model: Math.min(links.count, root.linkLimit)
+
+                delegate: Item {
+                    id: linkRow
+                    required property int index
+
+                    readonly property string fileName: links.get(index, "fileName") || ""
+                    readonly property string filePath: links.get(index, "filePath") || ""
+                    property string url: ""
+
+                    x: 12
+                    width: col.width - 24
+                    height: 36
+
+                    FileView {
+                        id: linkFile
+                        path: linkRow.filePath
+                        printErrors: false
+                        onLoaded: linkRow.url = O.linkUrl(text(), linkRow.fileName)
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 9
+                        color: linkArea.containsMouse ? root.pal.surfaceHover : "transparent"
+                    }
+
+                    MouseArea {
+                        id: linkArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.svc.openLink(linkRow.filePath)
+                    }
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.right: openKey.left
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        elide: Text.ElideMiddle
+                        text: linkRow.url !== "" ? linkRow.url : O.linkLabel(linkRow.fileName)
+                        textFormat: Text.PlainText
+                        color: root.pal.ink
+                        font.family: root.t.fontFamily
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                    }
+
+                    KeyCap {
+                        id: openKey
+                        theme: root.t
+                        pal: root.pal
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        icon: "open_in_new"
+                        text: "Open"
+                        onClicked: root.svc.openLink(linkRow.filePath)
+                    }
+                }
+            }
+
+            Text {
+                x: 16
+                width: parent.width - 32
+                visible: links.count > root.linkLimit
+                text: "+" + (links.count - root.linkLimit) + " more in " + root.m.dir
+                elide: Text.ElideMiddle
+                color: root.pal.inkSub
+                font.family: root.t.fontFamily
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
             }
 
             // ===== footer =====

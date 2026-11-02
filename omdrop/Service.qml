@@ -27,10 +27,15 @@ QtObject {
     property real checkedAt: 0
     property real now: Date.now()
 
-    // The last peer listing, and the names learnt in this session, keyed by address.
+    // The last peer listing, and the names learnt so far, keyed by address. The names are
+    // kept in a small cache file, so a radio restart does not send every row back to an address.
     property var peers: []
     property var peerNames: ({})
     property bool namesResolved: false
+    readonly property string namesDir:
+        (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state"))
+        + "/sekaipop/plugins"
+    property string namesPath: ""
 
     // `omdrop doctor --json`: what is in the way before this computer can receive.
     property var doctor: ({ ready: true, missing: [], offers: [] })
@@ -73,7 +78,6 @@ QtObject {
         root.now = t
         if (m.state !== "on") {
             root.peers = []
-            root.peerNames = ({})
             root.namesResolved = false
         }
         if (m.state === "error" || (m.receiving && m.visible === null))
@@ -123,7 +127,43 @@ QtObject {
     }
 
     // Opening the popup asks the radio at once, not at the bar's next quarter minute.
-    Component.onCompleted: root.refresh()
+    Component.onCompleted: {
+        root.mkdirProc.running = true
+        root.refresh()
+    }
+
+    // ===== device names =====
+    property Process mkdirProc: Process {
+        command: ["mkdir", "-p", "-m", "700", root.namesDir]
+        onExited: {
+            root.namesPath = root.namesDir + "/omdrop-device-names.json"
+            if (Object.keys(root.peerNames).length > 0)
+                root.saveNames()
+        }
+    }
+
+    property FileView namesFile: FileView {
+        path: root.namesPath
+        printErrors: false
+        onLoaded: {
+            const saved = O.readNames(text())
+            const known = O.mergeNames(saved, root.peerNames)
+            if (Object.keys(known).length > 0) {
+                root.peerNames = known
+                root.peers = O.mergePeers(root.peers, known)
+            }
+        }
+    }
+
+    function saveNames() {
+        if (root.namesPath !== "")
+            root.namesSave.restart()
+    }
+
+    property Timer namesSave: Timer {
+        interval: 250
+        onTriggered: root.namesFile.setText(JSON.stringify(root.peerNames))
+    }
 
     // ===== doctor =====
     function askDoctor() {
@@ -329,8 +369,20 @@ QtObject {
             waitForEnd: true
             onStreamFinished: {
                 const list = O.parsePeers(text)
-                if (list !== null)
-                    root.peers = O.mergePeers(list, root.peerNames)
+                if (list === null)
+                    return
+                let known = root.peerNames
+                for (let i = 0; i < list.length; i++) {
+                    if (list[i].name !== "") {
+                        known = O.rememberName(known, list[i].mac, list[i].name)
+                        root.namesResolved = true
+                    }
+                }
+                if (known !== root.peerNames) {
+                    root.peerNames = known
+                    root.saveNames()
+                }
+                root.peers = O.mergePeers(list, root.peerNames)
             }
         }
     }
@@ -355,11 +407,10 @@ QtObject {
                         return
                     if (!root.peers.some(q => q.mac === p.mac))
                         return
-                    const known = Object.assign({}, root.peerNames)
-                    known[p.mac] = p.name
-                    root.peerNames = known
+                    root.peerNames = O.rememberName(root.peerNames, p.mac, p.name)
                     root.namesResolved = true
-                    root.peers = O.mergePeers(root.peers, known)
+                    root.peers = O.mergePeers(root.peers, root.peerNames)
+                    root.saveNames()
                 } catch (e) {
                     // a line that is not a peer is not a name
                 }
@@ -479,8 +530,9 @@ QtObject {
             Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "sh", String(text)])
     }
 
-    function open(url) {
-        if (url)
-            Quickshell.execDetached(["xdg-open", String(url)])
+    // Received links go through omdrop's own web-only gate, whichever way they are opened.
+    function openLink(path) {
+        if (path)
+            Quickshell.execDetached([root.cli, "open-link", String(path)])
     }
 }

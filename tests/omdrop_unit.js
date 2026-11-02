@@ -9,8 +9,10 @@ const O = load("omdrop/lib/Omdrop.js", [
     "firstLine", "classify", "emptyModel", "model", "reasonText", "formatRemaining",
     "entryText", "entryTip", "entryDot", "statusLine", "visibleText", "detailText", "isUrgent",
     "windowArg", "windowLabel", "stopForRemaining", "activeWindow",
-    "cleanName", "normalizePeer", "parsePeers", "normalizePeers", "mergePeers", "namedPeers",
-    "sortedPeers", "peerLabel", "strength", "angleFor", "signalText",
+    "NAME_CACHE_MAX", "cleanName", "cleanMac", "readNames", "rememberName", "mergeNames",
+    "normalizePeer", "parsePeers", "normalizePeers", "mergePeers", "namedPeers",
+    "sortedPeers", "peerLabel", "strength", "angleFor", "signalText", "sendPhase",
+    "fileUrl", "linkLabel", "webUrl", "iniUrl", "xmlText", "plistUrl", "linkUrl", "linkTitle",
     "doctorModel", "doctorText", "checkedText", "pollMs"
 ])
 
@@ -230,6 +232,38 @@ test("nearby devices: parsing, names, order", () => {
     assert.strictEqual(O.signalText(null), "signal unknown")
 })
 
+test("the device-name cache survives a radio restart", () => {
+    assert.deepStrictEqual(O.readNames(""), {})
+    assert.deepStrictEqual(O.readNames("not json"), {})
+    assert.deepStrictEqual(O.readNames("[]"), {})
+    assert.deepStrictEqual(O.readNames("null"), {})
+    assert.deepStrictEqual(O.readNames('{"AA:BB:CC:DD:EE:01":" Jane\\u0000 ", "aa:bb:cc:dd:ee:01":"New", "":"x", "CC":"", "DD":5}'),
+        { "aa:bb:cc:dd:ee:01": "New" })
+    assert.strictEqual(Object.keys(O.readNames(JSON.stringify(
+        Object.fromEntries(Array.from({ length: 600 }, (_, i) => ["aa:bb:cc:dd:" + String(i).padStart(4, "0"), "n" + i]))
+    ))).length, O.NAME_CACHE_MAX)
+
+    assert.deepStrictEqual(O.rememberName(null, "AA:BB", " Jane "), { "aa:bb": "Jane" })
+    assert.deepStrictEqual(O.rememberName({ "aa:bb": "Old", "cc:dd": "Keep" }, "AA:BB", "New"), { "cc:dd": "Keep", "aa:bb": "New" })
+    assert.deepStrictEqual(O.rememberName({ "aa:bb": "Old" }, "", "New"), { "aa:bb": "Old" })
+    assert.deepStrictEqual(O.rememberName({ "aa:bb": "Old" }, "cc:dd", ""), { "aa:bb": "Old" })
+    assert.deepStrictEqual(O.rememberName({ a: "1", b: "2", c: "3" }, "d", "4", 3), { b: "2", c: "3", d: "4" })
+    assert.strictEqual(Object.keys(O.rememberName({ a: "1" }, "b", "2", 0)).length, 2, "a bad cap is the default")
+    assert.deepStrictEqual(O.mergeNames(null, null), {})
+    assert.deepStrictEqual(O.mergeNames({ "aa:bb": "Old", "cc:dd": "Keep" }, { "AA:BB": "New", "ee:ff": "Add" }),
+        { "aa:bb": "New", "cc:dd": "Keep", "ee:ff": "Add" })
+    assert.deepStrictEqual(O.mergeNames({ "aa:bb": "Old" }, { "aa:bb": undefined }), { "aa:bb": "Old" })
+    assert.deepStrictEqual(O.mergeNames({ "aa:bb": "Old", bad: 5 }, { "": "x" }), { "aa:bb": "Old" })
+
+    assert.strictEqual(O.cleanMac(null), "")
+    assert.strictEqual(O.cleanMac(" AA:BB "), "aa:bb")
+    assert.strictEqual(O.cleanMac("not a mac"), "")
+    assert.strictEqual(O.sendPhase(true, false, false), "working")
+    assert.strictEqual(O.sendPhase(false, false, true), "failed")
+    assert.strictEqual(O.sendPhase(false, true, false), "done")
+    assert.strictEqual(O.sendPhase(false, false, false), "idle")
+})
+
 test("doctor and the clock", () => {
     const d = O.doctorModel('noise\n{"ready":false,"missing":[{"id":"driver","say":"Install it."}],' +
         '"offers":[{"id":"core","say":"Maybe."},{"id":1}]}')
@@ -259,6 +293,50 @@ test("doctor and the clock", () => {
     assert.strictEqual(O.pollMs(["popup"], 500, "on"), 60000)
     assert.strictEqual(O.pollMs(undefined, "x", "on"), 15000)
     assert.strictEqual(O.pollMs(["popup"], 2.9, "on"), 2000)
+})
+
+test("received links: names, paths and the web-only gate", () => {
+    assert.strictEqual(O.fileUrl("/home/me/My Drops/100% #1"), "file:///home/me/My%20Drops/100%25%20%231")
+    assert.strictEqual(O.fileUrl(""), "")
+    assert.strictEqual(O.fileUrl(null), "")
+
+    assert.strictEqual(O.linkLabel("example.com-page.url"), "example.com-page")
+    assert.strictEqual(O.linkLabel("SITE.WEBLOC"), "SITE")
+    assert.strictEqual(O.linkLabel(".url"), "Link")
+    assert.strictEqual(O.linkLabel(null), "Link")
+
+    assert.strictEqual(O.webUrl(" https://example.com/a?b=1 "), "https://example.com/a?b=1")
+    assert.strictEqual(O.webUrl("HTTP://example.com/"), "HTTP://example.com/")
+    assert.strictEqual(O.webUrl("file:///etc/passwd"), "")
+    assert.strictEqual(O.webUrl("smb://server/share"), "")
+    assert.strictEqual(O.webUrl("https:///no-host"), "")
+    assert.strictEqual(O.webUrl("https://example.com/a b"), "")
+    assert.strictEqual(O.webUrl("https://example.com/\u0000"), "")
+    assert.strictEqual(O.webUrl("https://"), "")
+    assert.strictEqual(O.webUrl(null), "")
+
+    const ini = "[Other]\nURL=https://decoy.example/\n[InternetShortcut]\r\nURL=https://example.com/a\r\n"
+    assert.strictEqual(O.iniUrl(ini), "https://example.com/a")
+    assert.strictEqual(O.iniUrl("[InternetShortcut]\nName=x\nURL = https://example.com/b  \nURL=https://later.example/"), "https://example.com/b")
+    assert.strictEqual(O.iniUrl("[Other]\nURL=https://example.com/"), "")
+    assert.strictEqual(O.iniUrl("URL=https://example.com/"), "")
+    assert.strictEqual(O.iniUrl(null), "")
+
+    assert.strictEqual(O.xmlText("a&amp;b &lt;c&gt; &quot;d&quot; &apos;e&apos; &#65; &#x42; &bogus; &#0;"), "a&b <c> \"d\" 'e' A B &bogus; &#0;")
+    assert.strictEqual(O.xmlText(null), "")
+
+    const plist = "<plist><dict><key>URL</key><string>https://example.com/?a=1&amp;b=2</string></dict></plist>"
+    assert.strictEqual(O.plistUrl(plist), "https://example.com/?a=1&b=2")
+    assert.strictEqual(O.plistUrl("<plist><dict></dict></plist>"), "")
+    assert.strictEqual(O.plistUrl(null), "")
+
+    assert.strictEqual(O.linkUrl("[InternetShortcut]\nURL=https://example.com/", "site.url"), "https://example.com/")
+    assert.strictEqual(O.linkUrl(plist, "site.webloc"), "https://example.com/?a=1&b=2")
+    assert.strictEqual(O.linkUrl("[InternetShortcut]\nURL=file:///home", "site.url"), "")
+    assert.strictEqual(O.linkUrl("[InternetShortcut]\nURL=https://example.com/", "site.txt"), "")
+    assert.strictEqual(O.linkUrl(null, null), "")
+    assert.strictEqual(O.linkTitle("[InternetShortcut]\nURL=https://example.com/", "site.url"), "https://example.com/")
+    assert.strictEqual(O.linkTitle("not a plist", "site.webloc"), "site")
 })
 
 test("emptyModel is the shape every surface can read", () => {

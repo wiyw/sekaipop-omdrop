@@ -7,12 +7,14 @@ business.
 | Surface            | Shows                                                                                                  |
 | ------------------ | ------------------------------------------------------------------------------------------------------ |
 | **Bar entry**      | whether this computer is receiving, and the time left (`9:58`, `On`, `Off`, `Hidden`, `Missing`)        |
-| **Popup**          | start/stop, the window, Everyone / Contacts Only, name and folder, known senders, the radar, send files |
-| **Desktop widget** | the same radar and nearby devices as a card (or, compact, the count and a small radar)                  |
+| **Popup**          | start/stop, the window, Everyone / Contacts Only, name and folder, known senders, nearby devices, send files, received links |
+| **Desktop widget** | nearby devices as a card (or, compact, the count) |
 
-Click a device on the radar or a row to send it files. While a send is running the row shows the
-CLI's own progress; it can be cancelled. The popup scrolls, so every control stays reachable even
-when the card is short.
+Click a device row to send it files. While a send is running the row shows a progress bar; it can be cancelled. The popup scrolls, so every control stays reachable even when the card is short.
+
+Shared links arrive in the download folder as `.url` or `.webloc` files. The popup lists the four
+newest; click a row or its **Open** key to open the page in your browser. Only `http` and `https`
+links open; Omdrop refuses anything else, because it was chosen by whoever sent it.
 
 ## requirements
 
@@ -24,7 +26,9 @@ when the card is short.
   installs; without it, starting can ask for a password.
 
 The plugin only calls `omdrop`; it installs no driver, writes no systemd unit and needs no root of
-its own.
+its own. It remembers recently seen device names in
+`~/.local/state/sekaipop/plugins/omdrop-device-names.json`, so the radio restarting does not send
+every row back to an address.
 
 ## install
 
@@ -50,7 +54,6 @@ Settings > Desktop > Plugins > Omdrop:
 | Bar       | Bar entry            | Icon and state     | or Icon only (a state dot on the icon)                          |
 | Bar       | Hide without Omdrop  | on                 | off the bar when the `omdrop` command isn't there               |
 | Receiving | Stay visible for     | 10 minutes         | one file, 1/5/10/15/30 minutes, 1 hour, until turned off        |
-| Receiving | Radar sounds         | on                 | blips as names arrive and pings as the sweep crosses a device   |
 | Widget    | Widget look          | Full               | or Compact                                                      |
 | Checking  | Check every          | 5 seconds          | while the popup or widget shows; the bar alone checks every 15 s |
 
@@ -64,11 +67,9 @@ the live window from that moment.
   returns.
 - `scripts/test.sh` runs its tests with the 95 % line, branch and function coverage floor.
 - Check the QML by running it: Qt 6's `qmllint`, then a live SekaiPop.
-- The sounds beside the QML are Omdrop's (MIT, copyright Brent Kearney); see `LICENSE`. They play through
-  `pw-play`, with `paplay` as the fallback.
 
 ## license
 
-MIT license: the plugin code is © 2026 Greyson; the included radar sounds are © 2026 Brent Kearney (MIT). The SekaiPop platform is GPL‑3.0, and this plugin’s MIT licence is compatible with it.
+MIT license: the plugin code is © 2026 Greyson. The SekaiPop platform is GPL‑3.0, and this plugin’s MIT licence is compatible with it.
 
 SekaiPop itself is GPL-3.0; this plugin is a separate set of files it loads, and MIT is compatible with it.

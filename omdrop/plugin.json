@@ -1,7 +1,7 @@
 {
     "id": "omdrop",
     "name": "Omdrop",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "api": 1,
     "description": "AirDrop for nearby Apple devices, over Owly's radio: turn receiving on, see who is around, and send files.",
     "icon": "wifi_tethering",
@@ -10,7 +10,6 @@
         "barLook": "status",
         "hideWhenMissing": true,
         "window": "10m",
-        "radarSound": true,
         "look": "full",
         "checkSeconds": 5
     },
@@ -41,14 +40,9 @@
                 { "value": "forever", "label": "Until turned off" }
             ]
         },
-        "radarSound": {
-            "label": "Radar sounds",
-            "description": "Blips as names arrive and pings as the sweep crosses a device.",
-            "group": "Receiving"
-        },
         "look": {
             "label": "Widget look",
-            "description": "Compact is the radar alone.",
+            "description": "Compact is just the icon and the count.",
             "group": "Widget",
             "choices": [{ "value": "full", "label": "Full" }, { "value": "compact", "label": "Compact" }]
         },

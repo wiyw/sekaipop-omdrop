@@ -21,8 +21,9 @@ Item {
     readonly property string mac: root.peer ? root.peer.mac : ""
     readonly property string name: root.peer ? O.peerLabel(root.peer) : ""
     readonly property bool named: root.peer && root.peer.name !== ""
+    readonly property string phase: O.sendPhase(root.sending, root.sendDone, root.sendFailed)
 
-    implicitHeight: root.sending ? 58 : 46
+    implicitHeight: root.phase === "idle" ? 46 : 64
     width: parent ? parent.width : 320
 
     Rectangle {
@@ -62,6 +63,46 @@ Item {
             font.family: root.theme.fontFamily
             font.pixelSize: 11
             font.weight: Font.DemiBold
+        }
+    }
+
+    Rectangle {
+        id: track
+        anchors.left: parent.left
+        anchors.leftMargin: 10
+        anchors.right: parent.right
+        anchors.rightMargin: 10
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 4
+        height: 3
+        radius: height / 2
+        visible: root.phase !== "idle"
+        color: Qt.rgba(root.pal.line.r, root.pal.line.g, root.pal.line.b, 0.35)
+        clip: true
+
+        Rectangle {
+            id: segment
+            visible: root.phase === "working"
+            width: track.width * 0.3
+            height: parent.height
+            radius: parent.radius
+            color: root.pal.ink
+
+            NumberAnimation on x {
+                running: segment.visible && track.visible
+                loops: Animation.Infinite
+                from: -segment.width
+                to: track.width
+                duration: 1100
+                easing.type: Easing.InOutQuad
+            }
+        }
+
+        Rectangle {
+            visible: root.phase === "done" || root.phase === "failed"
+            anchors.fill: parent
+            radius: parent.radius
+            color: root.phase === "failed" ? root.theme.warnFill : root.pal.ink
         }
     }
 

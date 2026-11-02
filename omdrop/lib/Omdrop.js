@@ -260,6 +260,8 @@ function activeWindow(m, saved) {
 
 // ---- nearby devices -----------------------------------------------------------
 
+var NAME_CACHE_MAX = 512
+
 function cleanName(name) {
     if (typeof name !== "string")
         return ""
@@ -274,6 +276,80 @@ function cleanName(name) {
         break
     }
     return s.slice(0, 255)
+}
+
+function cleanMac(mac) {
+    if (typeof mac !== "string")
+        return ""
+    var s = cleanName(mac).toLowerCase()
+    return /^[0-9a-f:.-]{1,64}$/.test(s) ? s : ""
+}
+
+// The names learnt before, from the cache file. Anything unreadable is an empty cache, never
+// an error; a damaged entry is dropped rather than allowed to reach a label.
+function readNames(text) {
+    var t = String(text || "").trim()
+    if (t === "")
+        return {}
+    try {
+        var saved = JSON.parse(t)
+        if (!saved || typeof saved !== "object" || Array.isArray(saved))
+            return {}
+        var out = {}
+        var count = 0
+        var keys = Object.keys(saved)
+        for (var i = 0; i < keys.length && count < NAME_CACHE_MAX; i++) {
+            var mac = cleanMac(keys[i])
+            var name = cleanName(saved[keys[i]])
+            if (mac !== "" && name !== "") {
+                out[mac] = name
+                count++
+            }
+        }
+        return out
+    } catch (e) {
+        return {}
+    }
+}
+
+// One more name, with the oldest dropped once the cache is full. A fresh object, so QML sees
+// the change.
+function rememberName(names, mac, name, max) {
+    var key = cleanMac(mac)
+    var clean = cleanName(name)
+    var out = {}
+    if (names && typeof names === "object") {
+        var keys = Object.keys(names)
+        for (var i = 0; i < keys.length; i++) {
+            var k = cleanMac(keys[i])
+            var v = cleanName(names[keys[i]])
+            if (k !== "" && v !== "")
+                out[k] = v
+        }
+    }
+    if (key === "" || clean === "")
+        return out
+    delete out[key]
+    out[key] = clean
+    var limit = typeof max === "number" && isFinite(max) && max > 0 ? Math.floor(max) : NAME_CACHE_MAX
+    var all = Object.keys(out)
+    for (var j = 0; j < all.length - limit; j++)
+        delete out[all[j]]
+    return out
+}
+
+function mergeNames(base, over) {
+    var out = {}
+    var a = base && typeof base === "object" ? base : {}
+    var b = over && typeof over === "object" ? over : {}
+    var keys = Object.keys(a).concat(Object.keys(b))
+    for (var i = 0; i < keys.length; i++) {
+        var mac = cleanMac(keys[i])
+        var name = cleanName(b[keys[i]] !== undefined ? b[keys[i]] : a[keys[i]])
+        if (mac !== "" && name !== "")
+            out[mac] = name
+    }
+    return readNames(JSON.stringify(out))
 }
 
 function normalizePeer(p) {
@@ -327,7 +403,7 @@ function normalizePeers(list) {
     return out
 }
 
-// Keep every name learnt this session, and put it on the peers still listed.
+// Put every name learnt before on the peers still listed.
 function mergePeers(list, names) {
     var out = normalizePeers(list)
     for (var i = 0; i < out.length; i++)
@@ -376,6 +452,106 @@ function angleFor(mac) {
 
 function signalText(p) {
     return p && p.rssi !== null ? p.rssi + " dBm" : "signal unknown"
+}
+
+// The send row's bar: working, finished, failed, or not there at all.
+function sendPhase(sending, done, failed) {
+    if (sending)
+        return "working"
+    if (failed)
+        return "failed"
+    if (done)
+        return "done"
+    return "idle"
+}
+
+// ---- received links -----------------------------------------------------------
+
+// A path as a file:// URL, so FolderListModel can watch it. Each segment is encoded, which keeps
+// spaces, # and % out of the URL's syntax.
+function fileUrl(path) {
+    var p = String(path || "")
+    if (p === "")
+        return ""
+    return "file://" + p.split("/").map(encodeURIComponent).join("/")
+}
+
+function linkLabel(fileName) {
+    var s = String(fileName || "").replace(/\.(url|webloc)$/i, "").trim()
+    return s === "" ? "Link" : s
+}
+
+// Whether a URL is a web page, the only kind omdrop opens. Mirrors the CLI's gate, so the popup
+// never presents file:// or an app's custom scheme as a link it will open.
+function webUrl(url) {
+    var s = String(url || "").trim()
+    if (!/^https?:\/\//i.test(s))
+        return ""
+    if (/[\u0000-\u0020\u007f]/.test(s))
+        return ""
+    var rest = s.replace(/^https?:\/\//i, "")
+    return rest === "" || rest.charAt(0) === "/" ? "" : s
+}
+
+function iniUrl(body) {
+    var lines = String(body || "").split(/\r?\n/)
+    var inSection = false
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/\r$/, "")
+        var header = /^\s*\[(.*)\]\s*$/.exec(line)
+        if (header) {
+            inSection = header[1].replace(/\s/g, "").toLowerCase() === "internetshortcut"
+            continue
+        }
+        if (!inSection)
+            continue
+        var pair = /^\s*url\s*=\s*(.*)$/i.exec(line)
+        if (pair)
+            return pair[1].trim()
+    }
+    return ""
+}
+
+function xmlText(s) {
+    return String(s || "").replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, function (m, key) {
+        var k = key.toLowerCase()
+        if (k === "amp")
+            return "&"
+        if (k === "lt")
+            return "<"
+        if (k === "gt")
+            return ">"
+        if (k === "quot")
+            return "\""
+        if (k === "apos")
+            return "'"
+        var digits = k.slice(1)
+        var code = digits.charAt(0) === "x" ? parseInt(digits.slice(1), 16) : parseInt(digits, 10)
+        return code > 0 && code <= 0xffff ? String.fromCharCode(code) : m
+    })
+}
+
+function plistUrl(body) {
+    var m = /<key>\s*URL\s*<\/key>\s*<string>([\s\S]*?)<\/string>/i.exec(String(body || ""))
+    return m ? xmlText(m[1]).trim() : ""
+}
+
+// linkUrl(text, fileName) -> the web link inside a received .url/.webloc, or "". Binary .webloc
+// files cannot be read here; their row still opens through `omdrop open-link`, which can.
+function linkUrl(text, fileName) {
+    var name = String(fileName || "").toLowerCase()
+    var body = String(text || "")
+    if (/\.url$/.test(name))
+        return webUrl(iniUrl(body))
+    if (/\.webloc$/.test(name))
+        return webUrl(plistUrl(body))
+    return ""
+}
+
+// What a link row says: the URL when the file is readable, else the name the receiver gave it.
+function linkTitle(text, fileName) {
+    var url = linkUrl(text, fileName)
+    return url !== "" ? url : linkLabel(fileName)
 }
 
 // ---- doctor -------------------------------------------------------------------
