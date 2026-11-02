@@ -2,8 +2,13 @@
 
 ## Omdrop
 
-`omdrop/lib/open_link.py` is adapted from the link handling in Omdrop's
-[`bin/omdrop`](https://github.com/netmojo-systems/omdrop-plugin).
+This plugin bundles Omdrop's runtime under `omdrop/vendor/omdrop/` so it can
+install and run without a separate Omdrop installation. It also carries the
+adapted link opener at `omdrop/lib/open_link.py`.
+
+Upstream: <https://github.com/netmojo-systems/omdrop-plugin> (version `0.18.7`,
+commit `0ac99a8c469e67a3fd15934d985fe0de0cc8abb0`). The local changes are
+recorded in `omdrop/vendor/omdrop/UPSTREAM.md`.
 
 Omdrop is Copyright (c) 2026 Brent Kearney and licensed under the MIT License:
 

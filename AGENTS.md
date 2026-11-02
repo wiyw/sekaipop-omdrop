@@ -10,9 +10,13 @@ A SekaiPop plugin: QML surfaces plus one `.pragma library` JS file, loaded by Se
 - **Received links use the bundled opener**, `omdrop/lib/open_link.py`, adapted from Omdrop's
   MIT-licensed link handling. Keep its attribution in `THIRD_PARTY_NOTICES.md` and run its Python
   tests from `scripts/test.sh`.
-- **All radio work goes through the user's `omdrop` command line.** The plugin must not talk to
-  systemd, Owly, `awdl0` or the receiver directly, and must not install drivers. Read-only calls
-  are `omdrop status --json`, `omdrop peers --json`, `omdrop doctor --json` and
+- **The vendored Omdrop runtime is upstream code.** Record its version, commit and local changes
+  in `omdrop/vendor/omdrop/UPSTREAM.md`; keep Omdrop's `LICENSE` and `THIRD_PARTY_NOTICES.md`.
+- **All radio work goes through the bundled `omdrop` command line** at
+  `omdrop/vendor/omdrop/bin/omdrop` (overridable with `SEKAIPOP_OMDROP_CLI`). The plugin must not
+  talk to systemd, Owly, `awdl0` or the receiver directly. Only `install.sh` installs packages,
+  writes the receiver unit or runs `omdrop setup`; the runtime QML must not. Read-only calls are
+  `omdrop status --json`, `omdrop peers --json`, `omdrop doctor --json` and
   `omdrop senders list --json`; the rest change what this computer is advertising.
 - **Never run `omdrop on`, `off`, `name`, `dir`, `visibility`, `senders`, `sound` or `send` while
   checking the UI** unless that is the test itself: they change the owner's machine. Use a fake

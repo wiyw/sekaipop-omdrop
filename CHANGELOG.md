@@ -4,6 +4,22 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-11-01
+
+### Added
+
+- Bundled the Omdrop runtime under `omdrop/vendor/omdrop/` (MIT, Brent Kearney)
+  so `install.sh` installs and sets it up without a separate Omdrop install.
+- `install.sh` now installs receiver libraries, attempts a radio backend, runs
+  `omdrop setup`, links the bundled command, idempotently patches SekaiPop's
+  bar for plugin-popup keyboard focus, and reloads the shell.
+- The service uses the bundled `omdrop` by default (overridable with
+  `SEKAIPOP_OMDROP_CLI`).
+
+### Changed
+
+- The bundled `omdrop open-link` works without `omarchy-launch-browser`.
+
 ## [0.2.1] - 2026-11-01
 
 ### Added

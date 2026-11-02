@@ -19,7 +19,9 @@ QtObject {
 
     required property var host
 
-    readonly property string cli: "omdrop"
+    readonly property string bundledCli:
+        decodeURIComponent(String(Qt.resolvedUrl("vendor/omdrop/bin/omdrop")).replace("file://", ""))
+    readonly property string cli: Quickshell.env("SEKAIPOP_OMDROP_CLI") || root.bundledCli
     readonly property string openLinkScript:
         decodeURIComponent(String(Qt.resolvedUrl("lib/open_link.py")).replace("file://", ""))
 
@@ -94,8 +96,8 @@ QtObject {
     }
 
     property Process statusProc: Process {
-        command: ["sh", "-c", "command -v omdrop >/dev/null 2>&1 || { echo " + O.MISSING_MARK
-            + "; exit 0; }; exec omdrop status --json 2>&1"]
+        command: ["sh", "-c", "test -x \"$1\" || { echo " + O.MISSING_MARK
+            + "; exit 0; }; exec \"$1\" status --json 2>&1", "sh", root.cli]
         stdout: StdioCollector {
             onStreamFinished: if (!root.statusStale) root.applyStatus(text)
         }
@@ -533,7 +535,7 @@ QtObject {
     }
 
     // The bundled opener keeps Omdrop's web-only gate and works with the desktop's browser
-    // launcher, so links do not need an omdrop build or Omarchy's launcher.
+    // launcher, so links do not need Omarchy's launcher.
     function openLink(path) {
         if (path)
             Quickshell.execDetached(["python3", root.openLinkScript, String(path)])

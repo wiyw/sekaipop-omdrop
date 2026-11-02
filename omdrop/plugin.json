@@ -1,7 +1,7 @@
 {
     "id": "omdrop",
     "name": "Omdrop",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "api": 1,
     "description": "AirDrop for nearby Apple devices, over Owly's radio: turn receiving on, see who is around, and send files.",
     "icon": "wifi_tethering",
