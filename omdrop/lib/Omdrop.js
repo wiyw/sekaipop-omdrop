@@ -537,7 +537,7 @@ function plistUrl(body) {
 }
 
 // linkUrl(text, fileName) -> the web link inside a received .url/.webloc, or "". Binary .webloc
-// files cannot be read here; their row still opens through `omdrop open-link`, which can.
+// files cannot be read here; their row still opens through the bundled opener, which can.
 function linkUrl(text, fileName) {
     var name = String(fileName || "").toLowerCase()
     var body = String(text || "")

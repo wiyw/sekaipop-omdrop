@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-11-01
+
+### Added
+
+- Bundled Omdrop's MIT-licensed `.url`/`.webloc` link handling and browser launcher
+  fallback, with attribution in `THIRD_PARTY_NOTICES.md`.
+
+### Changed
+
+- Received links no longer require `omdrop open-link` or Omarchy's
+  `omarchy-launch-browser`; the bundled opener uses the first available
+  `omarchy-launch-browser`, `xdg-open`, or `gio`.
+
 ## [0.2.0] - 2026-11-01
 
 ### Added

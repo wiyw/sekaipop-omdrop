@@ -20,6 +20,8 @@ QtObject {
     required property var host
 
     readonly property string cli: "omdrop"
+    readonly property string openLinkScript:
+        decodeURIComponent(String(Qt.resolvedUrl("lib/open_link.py")).replace("file://", ""))
 
     // O.model(): { state, message, receiving, visible, remaining, name, dir, mode, reason,
     // rxProven, sound, visibility, senders }. "off"/"missing" until the first answer.
@@ -530,9 +532,10 @@ QtObject {
             Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "sh", String(text)])
     }
 
-    // Received links go through omdrop's own web-only gate, whichever way they are opened.
+    // The bundled opener keeps Omdrop's web-only gate and works with the desktop's browser
+    // launcher, so links do not need an omdrop build or Omarchy's launcher.
     function openLink(path) {
         if (path)
-            Quickshell.execDetached([root.cli, "open-link", String(path)])
+            Quickshell.execDetached(["python3", root.openLinkScript, String(path)])
     }
 }

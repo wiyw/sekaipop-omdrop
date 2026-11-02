@@ -7,6 +7,9 @@ A SekaiPop plugin: QML surfaces plus one `.pragma library` JS file, loaded by Se
   gets. Use only the theme names that file promises.
 - **Rules go in `omdrop/lib/Omdrop.js`**, tested in node (`scripts/test.sh`, 95 % lines, branches
   and functions, never lowered). QML draws what it returns and holds no logic of its own.
+- **Received links use the bundled opener**, `omdrop/lib/open_link.py`, adapted from Omdrop's
+  MIT-licensed link handling. Keep its attribution in `THIRD_PARTY_NOTICES.md` and run its Python
+  tests from `scripts/test.sh`.
 - **All radio work goes through the user's `omdrop` command line.** The plugin must not talk to
   systemd, Owly, `awdl0` or the receiver directly, and must not install drivers. Read-only calls
   are `omdrop status --json`, `omdrop peers --json`, `omdrop doctor --json` and
